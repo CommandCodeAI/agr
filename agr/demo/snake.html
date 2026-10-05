@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agr plays Snake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --panel: #09090b;
+    --panel-2: #121215;
+    --line: #222226;
+    --ink: #fafafa;
+    --mute: #a1a1aa;
+    --dim: #6b6b70;
+    --accent: #6366f1;
+    --accent-2: #a5b4fc;
+    --good: #34d399;
+    --bad: #f87171;
+    --radius: 12px;
+    --sans: "Geist", ui-sans-serif, -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  body { padding: 20px 16px 40px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* masthead ------------------------------------------------------------- */
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    padding-bottom: 16px; border-bottom: 1px dashed var(--line); margin-bottom: 22px; }
+  .brand { font: 500 11px/1 var(--mono); letter-spacing: .32em; color: var(--mute); }
+  nav { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px; }
+  nav a { font: 500 12.5px/1 var(--mono); color: var(--mute); text-decoration: none;
+    padding: 7px 14px; border-radius: 999px; }
+  nav a.on { background: var(--panel-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+  nav a:hover { color: var(--ink); }
+
+  .eyebrow { font: 500 11px/1 var(--mono); letter-spacing: .22em; color: var(--mute); }
+  .eyebrow b { color: var(--dim); font-weight: 500; margin-right: 6px; }
+  h1 { font-size: clamp(26px, 3.4vw, 38px); font-weight: 600; letter-spacing: -0.03em;
+    margin: 10px 0 6px; }
+  .lede { color: var(--mute); font-size: 14.5px; margin: 0 0 22px; max-width: 70ch; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+  @media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card + .card { margin-top: 14px; }
+  .card h2 { font: 500 11px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+    color: var(--mute); margin: 0; padding: 16px 16px 0; }
+  .card h2::before { content: "// "; color: var(--dim); }
+  .card .body { padding: 14px 16px 16px; }
+
+  /* board ---------------------------------------------------------------- */
+  .stage { padding: 14px; }
+  .boardbox { width: min(100%, calc(100vh - 170px)); min-width: 280px; margin: 0 auto; position: relative; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: #050506; }
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.55); border-radius: 8px; backdrop-filter: blur(2px); }
+  .overlay[hidden] { display: none; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line);
+    margin-top: 14px; }
+  .stat { padding: 12px 4px 0; text-align: center; }
+  .stat + .stat { border-left: 1px solid var(--line); }
+  .stat .n { font: 500 24px/1.1 var(--mono); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font: 500 10.5px/1 var(--mono); letter-spacing: .18em; color: var(--dim);
+    text-transform: uppercase; margin-top: 6px; }
+
+  /* direction pad -------------------------------------------------------- */
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 64px); gap: 6px; }
+  .dir { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px; }
+  .dir .fill { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(99,102,241,.28);
+    transition: height .18s ease; }
+  .dir .arrow, .dir .p { position: relative; }
+  .dir .arrow { font-size: 15px; color: var(--mute); }
+  .dir .p { font: 500 13px/1 var(--mono); }
+  .dir.chosen { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px rgba(99,102,241,.35); }
+  .dir.chosen .arrow { color: var(--ink); }
+  .dir[data-d="up"] { grid-column: 2; grid-row: 1; }
+  .dir[data-d="left"] { grid-column: 1; grid-row: 2; }
+  .dir[data-d="right"] { grid-column: 3; grid-row: 2; }
+  .dir[data-d="down"] { grid-column: 2; grid-row: 3; }
+  .hub { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: center;
+    font: 500 10.5px/1.3 var(--mono); color: var(--dim); text-align: center; letter-spacing: .1em; }
+
+  /* safety rows ---------------------------------------------------------- */
+  .row { display: grid; grid-template-columns: 54px 1fr 48px 52px; gap: 10px; align-items: center; padding: 5px 0; }
+  .row .mv { font: 13px var(--mono); color: var(--mute); }
+  .track { height: 6px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
+  .track .f { height: 100%; border-radius: 999px; background: var(--accent); transition: width .18s ease; }
+  .row .pct { text-align: right; font: 12px var(--mono); color: var(--ink); }
+  .pill { font: 500 10.5px/1 var(--mono); text-align: center; padding: 4px 0; border-radius: 999px;
+    letter-spacing: .06em; }
+  .pill.safe { color: var(--good); background: rgba(52,211,153,.1); }
+  .pill.wall { color: var(--bad); background: rgba(248,113,113,.1); }
+  .row.wrong .pct { color: var(--bad); }
+  #safes { min-height: 146px; }  /* room for the four rows before the first move arrives */
+
+  /* labels keep their width and values truncate: text that changes every move never reflows the page */
+  .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; font-size: 13px; margin: 0; }
+  .kv dt { color: var(--mute); white-space: nowrap; }
+  .kv dd { margin: 0; text-align: right; font-family: var(--mono); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+
+  /* controls ------------------------------------------------------------- */
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  select, button { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 11px; font: 13px var(--sans); }
+  button { cursor: pointer; font-weight: 500; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:hover { filter: brightness(1.12); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { display: grid; gap: 6px; }
+  .field label { font: 500 10.5px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .16em; }
+  .field select { width: 100%; }
+  .bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px; flex-wrap: wrap; }
+
+  .status { font: 12px var(--mono); color: var(--dim); display: flex; align-items: center; gap: 8px; min-width: 130px; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: none; }
+  .pulse.on { background: var(--good); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: ping 1.6s infinite; }
+  .pulse.err { background: var(--bad); }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.55); } 100% { box-shadow: 0 0 0 8px rgba(52,211,153,0); } }
+
+  pre { white-space: pre; margin: 0; color: var(--mute); font: 11.5px/1.5 var(--mono);
+    height: 240px; overflow: auto; }
+  footer { margin-top: 28px; padding-top: 16px; border-top: 1px dashed var(--line);
+    font: 12px var(--mono); color: var(--dim); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span class="brand">COMMAND CODE</span>
+  </div>
+
+  <div class="eyebrow"><b>//</b>AGR DEMO</div>
+  <h1>Agr plays Snake</h1>
+  <p class="lede">
+    Agr ranks directions and predicts whether each move is safe in one forward pass.
+    In legal mode, game rules filter illegal moves and may override the top prediction to keep
+    moving straight or break loops. Safety predictions are displayed and scored, not used to
+    select moves. Top-prediction mode skips these rules except that reversing continues straight.
+  </p>
+
+  <div class="layout">
+    <div class="card stage">
+      <div class="boardbox">
+        <canvas id="board" width="768" height="768"></canvas>
+        <div class="overlay" id="overlay"><button class="primary" id="play">Start</button></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="n" id="score">0</div><div class="l">score</div></div>
+        <div class="stat"><div class="n" id="best">0</div><div class="l">best</div></div>
+        <div class="stat"><div class="n" id="dps">—</div><div class="l">moves / s</div></div>
+        <div class="stat"><div class="n" id="deaths">0</div><div class="l">deaths</div></div>
+      </div>
+      <div class="bottom">
+        <span class="status"><span class="pulse" id="pulse"></span><span id="conn">idle</span></span>
+        <div class="controls">
+          <button id="start">Restart</button>
+          <button id="stop">Pause</button>
+        </div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <h2>Which way</h2>
+        <div class="body">
+          <div class="pad" id="pad">
+            <div class="dir" data-d="up"><div class="fill"></div><span class="arrow">↑</span><span class="p">—</span></div>
+            <div class="dir" data-d="left"><div class="fill"></div><span class="arrow">←</span><span class="p">—</span></div>
+            <div class="hub" id="hub">ONE<br>PASS</div>
+            <div class="dir" data-d="right"><div class="fill"></div><span class="arrow">→</span><span class="p">—</span></div>
+            <div class="dir" data-d="down"><div class="fill"></div><span class="arrow">↓</span><span class="p">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Is it safe · against the truth</h2>
+        <div class="body" id="safes"></div>
+      </div>
+
+      <div class="card">
+        <h2>This decision</h2>
+        <div class="body"><dl class="kv">
+          <dt>Move taken</dt><dd id="k-move">—</dd>
+          <dt>Model time</dt><dd id="k-ms">—</dd>
+          <dt>Tokens read</dt><dd id="k-tokens">—</dd>
+          <dt>Safety calls right</dt><dd id="k-safe">—</dd>
+        </dl></div>
+      </div>
+
+      <div class="card">
+        <h2>Setup</h2>
+        <div class="body grid2">
+          <div class="field"><label>model</label><select id="model"></select></div>
+          <div class="field"><label>speed</label><select id="speed">
+            <option value="4">4 / s</option><option value="10" selected>10 / s</option><option value="20">20 / s</option>
+          </select></div>
+          <div class="field"><label>move rule</label><select id="mode">
+            <option value="legal">legal moves + assistance</option>
+            <option value="raw">top prediction (no reversing)</option>
+          </select></div>
+          <div class="field"><label>prompt</label><select id="detail">
+            <option value="full">full grid</option>
+            <option value="compact">compact</option>
+          </select></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>What the model read</h2>
+        <div class="body"><pre id="state">—</pre></div>
+      </div>
+    </aside>
+  </div>
+
+  <footer><span>Agr · a decision model, not a language model</span><span id="backbone"></span></footer>
+</div>
+
+<script>
+const N = 12;
+const cv = document.getElementById("board"), ctx = cv.getContext("2d");
+const CELL = cv.width / N;
+const $ = id => document.getElementById(id);
+const PARAMS = new URLSearchParams(location.search);
+// The key rides in the URL fragment (#key=...), which browsers never send to the server,
+// and goes out as a bearer header.
+const KEY = new URLSearchParams(location.hash.slice(1)).get("key") || "";
+const AUTH = KEY ? { headers: { Authorization: "Bearer " + KEY } } : {};
+const ORDER = ["up", "down", "left", "right"];
+let recent = [], safeHits = 0, safeTotal = 0, running = false, epoch = 0, best = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+
+function status(t, cls) { $("conn").textContent = t; $("pulse").className = "pulse " + (cls || ""); }
+
+function grid() {
+  ctx.fillStyle = "#050506";
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = "#1a1a1f";
+  for (let y = 1; y < N; y++) for (let x = 1; x < N; x++) {
+    ctx.beginPath(); ctx.arc(x * CELL, y * CELL, 1.6, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// Draws frame `f`, with the body `t` of the way (0..1) from where it stood in `prev`. Each segment
+// slides toward the cell the one ahead of it held, which is how a snake moves.
+function draw(f, prev = null, t = 1) {
+  grid();
+  if (!f) return;
+
+  const fx = f.food[0] * CELL + CELL / 2, fy = f.food[1] * CELL + CELL / 2;
+  ctx.fillStyle = "#fafafa";
+  ctx.beginPath(); ctx.arc(fx, fy, CELL * 0.18, 0, Math.PI * 2); ctx.fill();
+
+  // The body stays on the grid; only the head slides into its new cell and the tail slides out
+  // of its old one, so corners stay square instead of cutting across diagonally.
+  const lerp = (a, b) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  let cells = f.snake;
+  if (prev && t < 1 && f.alive) {
+    const body = prev.snake, grew = f.snake.length > body.length;
+    const tail = grew ? [body[body.length - 1]] : body.length > 1 ? [lerp(body[body.length - 1], body[body.length - 2])] : [];
+    cells = [lerp(body[0], f.snake[0]), ...body.slice(0, -1), ...tail];
+  }
+  const pts = cells.map(([x, y]) => [x * CELL + CELL / 2, y * CELL + CELL / 2]);
+  // body: one rounded tube through the segment centres, darker toward the tail
+  ctx.lineCap = ctx.lineJoin = "round";
+  ctx.lineWidth = CELL * 0.62;
+  for (let i = pts.length - 1; i > 0; i--) {
+    const s = i / Math.max(1, pts.length - 1);
+    ctx.strokeStyle = `rgb(${Math.round(99 - 45 * s)},${Math.round(102 - 45 * s)},${Math.round(241 - 110 * s)})`;
+    ctx.beginPath(); ctx.moveTo(...pts[i]); ctx.lineTo(...pts[i - 1]); ctx.stroke();
+  }
+  ctx.fillStyle = f.alive ? "#a5b4fc" : "#f87171";
+  ctx.beginPath(); ctx.arc(...pts[0], CELL * 0.36, 0, Math.PI * 2); ctx.fill();
+}
+
+// Slides from `prev` to `f` over `ms`, one canvas frame at a time. Browsers stop animation frames
+// for hidden or covered windows, so a timer finishes the move regardless.
+function animate(f, prev, ms) {
+  return new Promise(resolve => {
+    const t0 = performance.now();
+    let done = false;
+    const finish = () => { if (!done) { done = true; draw(f, prev, 1); resolve(); } };
+    const step = now => {
+      if (done) return;
+      const t = Math.min(1, (now - t0) / Math.max(1, ms));
+      if (t >= 1) return finish();
+      draw(f, prev, t);
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    setTimeout(finish, ms + 20);
+  });
+}
+
+function render(f) {
+  const now = performance.now();
+  recent.push(now); recent = recent.filter(t => t > now - 5000);
+  best = Math.max(best, f.score);
+  $("score").textContent = f.score;
+  $("best").textContent = best;
+  $("deaths").textContent = f.deaths;
+  $("dps").textContent = (recent.length / 5).toFixed(1);
+  $("k-move").textContent = f.move + " · " + f.reason;
+  $("k-ms").textContent = f.server_ms.toFixed(0) + " ms";
+  $("k-tokens").textContent = f.tokens;
+  $("state").textContent = f.state;
+  $("backbone").textContent = `${f.model} · ${f.backbone}`;
+
+  for (const el of document.querySelectorAll(".dir")) {
+    const d = el.dataset.d, p = f.probs[d] || 0;
+    el.classList.toggle("chosen", d === f.move);
+    el.querySelector(".fill").style.height = (p * 100).toFixed(1) + "%";
+    el.querySelector(".p").textContent = (p * 100).toFixed(0) + "%";
+  }
+
+  $("safes").innerHTML = ORDER.map(d => {
+    const ps = f.safe[d], truth = f.truth[d], agree = (ps >= 0.5) === truth;
+    safeTotal++; if (agree) safeHits++;
+    return `<div class="row ${agree ? "" : "wrong"}"><div class="mv">${d}</div>
+      <div class="track"><div class="f" style="width:${(ps * 100).toFixed(1)}%"></div></div>
+      <div class="pct">${(ps * 100).toFixed(0)}%</div>
+      <div class="pill ${truth ? "safe" : "wall"}">${truth ? "safe" : "wall"}</div></div>`;
+  }).join("");
+  $("k-safe").textContent = (100 * safeHits / safeTotal).toFixed(0) + "% of " + safeTotal;
+}
+
+function query() {
+  return `mode=${$("mode").value}` +
+         `&detail=${$("detail").value}&model=${encodeURIComponent($("model").value || "")}`;
+}
+function onFrame(f) { $("overlay").hidden = true; render(f); }
+
+// The server plays a few moves per request while the page replays the previous batch.
+// The game lives on the server under `sid`, so pausing and resuming continue the same game;
+// Restart takes a new id. Pausing aborts the request in flight, and the server stops with it.
+let sid = newSid(), ctl = null;
+function newSid() { return "s" + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+// Three requests stay in flight, so a slow network overlaps with play and the page runs at the
+// model's speed. Requests can finish in any order, so every frame goes into `frames` by tick and
+// the board always shows the tick after the last one it showed, never skipping ahead unless
+// frames beyond a gap have piled up (a request was lost to a pause).
+let lastTick = 0;
+async function play(mine) {
+  ctl = new AbortController();
+  const signal = ctl.signal;
+  const frames = new Map();
+  let inflight = 0, failed = false, wake = null, prev = null;
+  const nudge = () => { if (wake) { const w = wake; wake = null; w(); } };
+  const request = () => {
+    inflight++;
+    fetch(`/demo/snake/frames?${query()}&session=${sid}&n=12`, { cache: "no-store", signal, ...AUTH })
+      .then(r => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+      .then(j => { for (const f of j.frames) frames.set(f.tick, f); })
+      .catch(() => { if (!signal.aborted) failed = true; })
+      .finally(() => { inflight--; nudge(); });
+  };
+  const fill = () => { while (inflight < 3) request(); };
+  status("connecting");
+  fill();
+  while (running && mine === epoch) {
+    const f = frames.get(lastTick + 1);
+    if (!f) {
+      if (failed) { failed = false; status("retrying", "err"); await sleep(1500); }
+      if (frames.size > 36) { lastTick = Math.min(...frames.keys()) - 1; continue; }
+      fill();
+      await new Promise(r => { wake = r; setTimeout(r, 1000); });
+      continue;
+    }
+    frames.delete(f.tick);
+    lastTick = f.tick;
+    fill();
+    status("live", "on");
+    onFrame(f);
+    await animate(f, prev, 1000 / Number($("speed").value));
+    if (!running || mine !== epoch) return;
+    if (!f.alive) { prev = null; await sleep(700); } else prev = f;  // hold a crash, then a new game
+  }
+}
+function start() {
+  stop();
+  running = true;
+  $("stop").textContent = "Pause";
+  play(++epoch);
+}
+function stop() {
+  running = false; epoch++;
+  if (ctl) { ctl.abort(); ctl = null; }
+  status("paused");
+}
+function restart() {
+  sid = newSid();
+  lastTick = 0;
+  best = 0; safeHits = 0; safeTotal = 0; recent = [];
+  for (const id of ["score", "best", "deaths"]) $(id).textContent = "0";
+  draw(null);
+  start();
+}
+
+$("start").onclick = restart;
+$("play").onclick = start;
+$("stop").onclick = () => { if (running) { stop(); $("stop").textContent = "Resume"; } else start(); };
+for (const id of ["speed", "mode", "detail"]) $(id).onchange = () => { if (running) start(); };
+$("model").onchange = restart;
+draw(null);
+
+fetch("/v1/models", AUTH).then(r => {
+  if (r.status === 401) throw new Error("key");
+  return r.json();
+}).then(j => {
+  const sel = $("model");
+  for (const m of j.data) {
+    const o = document.createElement("option");
+    o.value = m.id;
+    o.textContent = m.id;
+    o.selected = PARAMS.get("model") ? m.id === PARAMS.get("model") : m.default;
+    sel.appendChild(o);
+  }
+  if (PARAMS.get("autostart") !== "0") start();
+}).catch(e => {
+  if (e.message === "key") { status("this server needs #key= in the URL", "err"); return; }
+  const o = document.createElement("option"); o.value = ""; o.textContent = "default"; $("model").appendChild(o);
+  if (PARAMS.get("autostart") !== "0") start();
+});
+</script>
+</body>
+</html>

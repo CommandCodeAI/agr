@@ -1,0 +1,33 @@
+[project]
+# "agr" on PyPI is an unrelated project; the import name and the command are still `agr`.
+name = "commandcode-agr"
+version = "0.1.0"
+description = "Agr decision models: send a state and typed questions, get typed answers with probabilities."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Command Code" }]
+# transformers is pinned to the minor version Agr was built and tested on: the model relies on
+# per-layer-type attention masks and Gemma's per-layer inputs, which are not stable API.
+dependencies = [
+  "torch>=2.14,<3",
+  "transformers>=5.17,<5.18",
+  "safetensors>=0.8",
+  "huggingface-hub>=1.32",
+  "pydantic>=2.13,<3",
+  "fastapi>=0.141",
+  "uvicorn>=0.53",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=9", "httpx>=0.28"]
+
+[project.scripts]
+agr = "agr.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agr"]

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+/runs/
+/checkpoints/
+*.safetensors
+.env
+.DS_Store
+/uv.lock
+/dist/
